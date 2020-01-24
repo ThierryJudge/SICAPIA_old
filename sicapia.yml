@@ -1,0 +1,26 @@
+name: sicapia
+channels:
+  - defaults
+  - conda-forge
+  - simpleitk
+  - pytorch
+dependencies:
+  - python>=3.7
+  - pip
+  - scipy
+  - matplotlib
+  - scikit-image
+  - scikit-learn
+  - umap-learn
+  - pandas
+  - h5py
+  - nibabel
+  - tqdm
+  - simpleitk
+  - pytorch
+  - torchvision
+  - pip:
+    - pytorch-lightning
+    - torchsummary
+    - keras
+    - medpy

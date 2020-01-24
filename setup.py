@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-setup(name='research_seed',
+setup(name='sicapia',
       version='0.0.1',
       description='Describe Your Cool Project',
       author='',

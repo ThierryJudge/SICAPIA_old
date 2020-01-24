@@ -1,14 +1,4 @@
-### pytorch-lightning-conference-seed
-Use this seed to refactor your PyTorch research code for:  
-- a paper submission  
-- a new research project.     
 
-[Read the usage instructions here](https://github.com/williamFalcon/pytorch-lightning-conference-seed/blob/master/HOWTO.md)
-
-#### Goals  
-The goal of this seed is to structure ML paper-code the same so that work can easily be extended and replicated.   
-
-###### DELETE EVERYTHING ABOVE FOR YOUR PROJECT   
 ---   
 <div align="center">    
  
@@ -39,10 +29,8 @@ First, install dependencies
 # clone project   
 git clone https://github.com/YourGithubName/Your-project-name   
 
-# install project   
-cd Your-project-name 
-pip install -e .   
-pip install -r requirements.txt
+#create conda environement
+conda env create -f sicapia.yml
  ```   
  Next, navigate to [Your Main Contribution (MNIST here)] and run it.   
  ```bash
