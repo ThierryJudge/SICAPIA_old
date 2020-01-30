@@ -5,7 +5,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
-
+import math
 
 class Net(nn.Module):
     def __init__(self):
@@ -49,16 +49,23 @@ class ActiveLearningModel:
         print(self.net.parameters())
 
     def reset_parameters(self):
-        for m in self.net.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+        # torch.manual_seed(10)
+        # for m in self.net.modules():
+        #     if isinstance(m, nn.Conv2d):
+        #         nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+        #     elif isinstance(m, nn.BatchNorm2d):
+        #         nn.init.constant_(m.weight, 1)
+        #         nn.init.constant_(m.bias, 0)
+        #     elif isinstance(m, nn.Linear):
+        #         nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
+        #         if m.bias is not None:
+        #             fan_in, _ = nn.init._calculate_fan_in_and_fan_out(m.weight)
+        #             bound = 1 / math.sqrt(fan_in)
+        #             nn.init.uniform_(m.bias, -bound, bound)
+        self.net = Net()
 
     def train(self, train_dataset:ActiveLearningDataset, val_dataset=None, epochs=10, device='cpu', verbose=True):
         train_loader = DataLoader(train_dataset, batch_size=32)
-        self.reset_parameters()
         self.net.train()
         for epoch in range(epochs):
             loss_mean = 0
