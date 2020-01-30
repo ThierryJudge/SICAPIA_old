@@ -7,45 +7,17 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 import math
 
-class Net(nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout2d(0.25)
-        self.dropout2 = nn.Dropout2d(0.5)
-        self.fc1 = nn.Linear(9216, 128)
-        self.fc2 = nn.Linear(128, 10)
-
-        self.fc = nn.Linear(784, 10)
-
-    def forward(self, x):
-        # x = self.conv1(x)
-        # x = F.relu(x)
-        # x = self.conv2(x)
-        # x = F.max_pool2d(x, 2)
-        # x = self.dropout1(x)
-        # x = torch.flatten(x, 1)
-        # x = self.fc1(x)
-        # x = F.relu(x)
-        # x = self.dropout2(x)
-        # x = self.fc2(x)
-        x = torch.flatten(x, 1)
-        x = self.fc(x)
-        output = F.log_softmax(x, dim=1)
-        return output
-
 class ActiveLearningModel:
     # model handels training, must be given network, loss, and metrics
     # aswell as other hyperparatms : learning rate, batch_size, optimizer...
 
-    def __init__(self, net:nn.Module=Net()):
+    def __init__(self, net:nn.Module):
         self.net = net
         self.batch_size=32
         self.learning_rate=0.1
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.learning_rate)
-
+        torch.save(self.net.state_dict(), 'initial_weights')
         print(self.net.parameters())
 
     def reset_parameters(self):
@@ -62,10 +34,14 @@ class ActiveLearningModel:
         #             fan_in, _ = nn.init._calculate_fan_in_and_fan_out(m.weight)
         #             bound = 1 / math.sqrt(fan_in)
         #             nn.init.uniform_(m.bias, -bound, bound)
-        self.net = Net()
+        # self.net = Net()
+        self.net.load_state_dict(torch.load('initial_weights'))
 
-    def train(self, train_dataset:ActiveLearningDataset, val_dataset=None, epochs=10, device='cpu', verbose=True):
+    def train(self, train_dataset:ActiveLearningDataset, val_dataset=None, epochs=10, device='cpu', verbose=True,
+              reset=False):
         train_loader = DataLoader(train_dataset, batch_size=32)
+        if reset:
+            self.reset_parameters()
         self.net.train()
         for epoch in range(epochs):
             loss_mean = 0

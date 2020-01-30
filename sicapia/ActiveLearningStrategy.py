@@ -6,7 +6,7 @@ import scipy.stats
 
 class ActiveLearningStrategy:
     def __init__(self, max):
-       self.max = max
+        self.max = max
 
     def get_uncertainty(self, sample, model):
         raise NotImplementedError
@@ -17,11 +17,11 @@ class ActiveLearningStrategy:
             uncertainties.append(self.get_uncertainty(sample, model))
 
         uncertainties = np.array(uncertainties)
-        pool_indicies  = np.arange(len(pool_dataset))
+        pool_indicies = np.arange(len(pool_dataset))
         pool_indicies = pool_indicies[uncertainties.argsort()]
 
         if self.max:
-            return pool_indicies[len(pool_dataset)-n_samples:] # get highest uncertainties
+            return pool_indicies[len(pool_dataset) - n_samples:]  # get highest uncertainties
         else:
             return pool_indicies[:n_samples]  # get lowest uncertainties
 
@@ -31,13 +31,13 @@ class RandomStrategy(ActiveLearningStrategy):
         super().__init__(max=True)
 
     def get_uncertainty(self, sample, model):
-        return random.uniform(0,1)
+        return random.uniform(0, 1)
 
 
 class ConfidenceSamplingStrategy(ActiveLearningStrategy):
-    '''
+    """
     Get lowest probable prediction
-    '''
+    """
 
     def __init__(self):
         super().__init__(max=False)
@@ -46,10 +46,12 @@ class ConfidenceSamplingStrategy(ActiveLearningStrategy):
         model_pred = model.net(sample)
         return torch.max(model_pred).detach().numpy()
 
+
 class MarginSamplingStrategy(ActiveLearningStrategy):
-    '''
+    """
     Get smallest difference between two most probable predictions
-    '''
+    """
+
     def __init__(self):
         super().__init__(max=False)
 
@@ -60,9 +62,10 @@ class MarginSamplingStrategy(ActiveLearningStrategy):
 
 
 class EntropySamplingStrategy(ActiveLearningStrategy):
-    '''
+    """
     Get smallest difference between two most probable predictions
-    '''
+    """
+
     def __init__(self):
         super().__init__(max=False)
 

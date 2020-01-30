@@ -1,18 +1,20 @@
 from torch.utils.data import Dataset, Subset
 import numpy as np
 import random
-
+import copy
+from typing import Union
 
 class ActiveLearningDataset(Dataset):
-    def __init__(self, dataset:Dataset, initial_label_rate=0.2):
+    def __init__(self, dataset: Dataset, initial_label_rate=0.2):
         self.dataset = dataset
         self.initial_label_rate = initial_label_rate
 
         self.labeled = np.zeros(len(self.dataset))
-        self.labeled_indicies = random.sample(range(len(dataset)), int(initial_label_rate*len(dataset)))
+        self.labeled_indicies = random.sample(range(len(dataset)), int(initial_label_rate * len(dataset)))
         self.labeled[self.labeled_indicies] = 1
+        self.initial_labeled = copy.deepcopy(self.labeled)
 
-        self.labeled_data_subset = Subset(self.dataset, np.where(self.labeled==1)[0])
+        self.labeled_data_subset = Subset(self.dataset, np.where(self.labeled == 1)[0])
 
         self.create_pool()
 
@@ -29,11 +31,23 @@ class ActiveLearningDataset(Dataset):
     def get_pool(self):
         return self.active_learning_pool
 
-    def label(self, indices):
-        unlabeled_indicies = np.where(self.labeled == 0)[0]
-        samples_to_label = unlabeled_indicies[indices]
+    def reset(self):
+        """
+            Reset to initial labeled data
+        """
+        self.labeled = copy.deepcopy(self.initial_labeled)
+        self.labeled_data_subset = Subset(self.dataset, np.where(self.labeled == 1)[0])
+        self.create_pool()
+
+    def label(self, indices: Union[list, int]):
+        """
+            Label samples indicated by indices
+        Args:
+            indices: list[int], sample indices to label relative to pool
+        """
+        unlabeled_indices = np.where(self.labeled == 0)[0]
+        samples_to_label = unlabeled_indices[indices]
         self.labeled[samples_to_label] = 1
-        #print(sum(self.labeled))
         self.create_pool()
         self.labeled_data_subset = Subset(self.dataset, np.where(self.labeled == 1)[0])
 
@@ -41,10 +55,11 @@ class ActiveLearningDataset(Dataset):
 def remove_label(x):
     return x[0]
 
+
 class ActiveLearningPool(Dataset):
-    def __init__(self, dataset:Dataset, remove_label=remove_label):
+    def __init__(self, dataset: Dataset, remove_label_fn=remove_label):
         self.dataset = dataset
-        self.remove_label = remove_label
+        self.remove_label = remove_label_fn
 
     def __getitem__(self, index):
         return self.remove_label(self.dataset[index])
@@ -52,15 +67,6 @@ class ActiveLearningPool(Dataset):
     def __len__(self):
         return len(self.dataset)
 
-class ConcatDataset(Dataset):
-    def __init__(self, *datasets):
-        self.datasets = datasets
-
-    def __getitem__(self, i):
-        return tuple(d[i] for d in self.datasets)
-
-    def __len__(self):
-        return min(len(d) for d in self.datasets)
 
 if __name__ == '__main__':
     from torchvision.datasets import MNIST
@@ -92,7 +98,3 @@ if __name__ == '__main__':
     plt.figure()
     plt.imshow(img.squeeze())
     plt.show()
-
-
-
-
