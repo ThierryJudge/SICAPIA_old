@@ -53,3 +53,9 @@ class Model(pl.LightningModule):
     def test_dataloader(self):
         pass
 
+    def train(self):
+        pass
+
+    def test(self):
+        pass
+

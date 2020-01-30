@@ -23,6 +23,8 @@ class MnistActiveLearning(MNIST):
         super().__init__(root=root, train=train,transform=transform, target_transform=target_transform,
                  download=download)
 
+        self.train_data, self.train_targets = torch.load(os.path.join(self.processed_folder, self.training_file))
+        self.test_data, self.test_targets = torch.load(os.path.join(self.processed_folder, self.training_file))
 
 
     def __getitem__(self, index):
