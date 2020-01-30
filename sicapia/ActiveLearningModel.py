@@ -55,9 +55,7 @@ class ActiveLearningModel:
                 self.optimizer.step()
             if verbose:
                 loss_mean /= len(train_dataset.dataset)
-                print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                    epoch, batch_idx * len(data), len(train_loader.dataset),
-                           100. * batch_idx / len(train_loader), loss_mean))
+                print('Train Epoch: {}: \tLoss: {:.6f}'.format(epoch, loss_mean))
 
     def eval(self, test_dataset:Dataset, device='cpu'):
         test_loader = DataLoader(test_dataset, batch_size=32)

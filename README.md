@@ -69,7 +69,7 @@ Use Google docstring format
             type, description 
         """
 ```
-In Pycharm, go to **Settings | Tools | Python Integrated Tools | Docstring format** and change to c
+In Pycharm, go to **Settings | Tools | Python Integrated Tools | Docstring format** and change to Google docstring format.
 
 <!--
 ## Main Contribution      
