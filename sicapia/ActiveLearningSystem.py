@@ -9,8 +9,7 @@ import json
 
 class ActiveLearningSystem:
     def __init__(self, al_dataset: ActiveLearningDataset, test_dataset: Dataset,
-                 model: ActiveLearningModel, strategies: list, val_dataset: Dataset = None,
-                 active_learning_loops=10):
+                 model: ActiveLearningModel, strategies: list, val_dataset: Dataset = None):
 
         self.al_dataset = al_dataset
         self.test_dataset = test_dataset

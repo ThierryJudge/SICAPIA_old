@@ -39,7 +39,9 @@ class ActiveLearningModel:
 
     def train(self, train_dataset:ActiveLearningDataset, val_dataset=None, epochs=10, device='cpu', verbose=True,
               reset=False):
-        train_loader = DataLoader(train_dataset, batch_size=32)
+        train_loader = DataLoader(train_dataset, batch_size=self.batch_size)
+        if val_dataset:
+            val_dataloader = Dataset(val_dataset, batch_size=self.batch_size)
         if reset:
             self.reset_parameters()
         self.net.train()
@@ -58,7 +60,7 @@ class ActiveLearningModel:
                 print('Train Epoch: {}: \tLoss: {:.6f}'.format(epoch, loss_mean))
 
     def eval(self, test_dataset:Dataset, device='cpu'):
-        test_loader = DataLoader(test_dataset, batch_size=32)
+        test_loader = DataLoader(test_dataset, batch_size=self.batch_size)
         self.net.eval()
         test_loss = 0
         correct = 0
