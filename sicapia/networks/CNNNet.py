@@ -1,9 +1,7 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from math import floor
-import numpy as np
-from torchsummary import summary
 from sicapia.utils.compute_output import compute_output_shape
 
 class Flatten(torch.nn.Module):
@@ -31,22 +29,12 @@ class CNNNet(nn.Module):
             nn.Linear(128, output_size)
         )
 
-
     def forward(self, x):
         x = self.conv_net(x)
         x = torch.flatten(x, 1)
         x = self.fc_net(x)
         output = F.log_softmax(x, dim=1)
         return output
-
-# def conv_output_shape(chw, filters=1, kernel_size=1, stride=1, pad=0, dilation=1):
-#     if type(kernel_size) is not tuple:
-#         kernel_size = (kernel_size, kernel_size)
-#     h = floor(((chw[1] + (2 * pad) - (dilation * (kernel_size[0] - 1)) - 1) / stride) + 1)
-#     w = floor(((chw[2] + (2 * pad) - (dilation * (kernel_size[1] - 1)) - 1) / stride) + 1)
-#     chw = np.array([filters, h, w])
-#     print(chw)
-#     return chw
 
 if __name__ == '__main__':
     from torchsummary import summary

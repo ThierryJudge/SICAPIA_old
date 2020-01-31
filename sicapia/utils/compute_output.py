@@ -1,12 +1,21 @@
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
-
-from collections import OrderedDict
-import numpy as np
 
 
-def compute_output_shape(model, input_size, batch_size=-1, device="cuda"):
+def compute_output_shape(model, input_size, device="cuda"):
+    """
+        Code taken from torchsummary.summary to calculate output size of a model.
+    Args:
+        model: nn.Module
+        input_size: tuple, input shape of the model
+        device: str, 'cuda' of 'cpu'
+
+    Returns:
+        tuple, output size of the model
+    """
+    batch_size = -1
 
     def register_hook(module):
 
@@ -75,4 +84,5 @@ def compute_output_shape(model, input_size, batch_size=-1, device="cuda"):
     for h in hooks:
         h.remove()
 
-    return summary.popitem()[1]["output_shape"][1:] #remove batch size
+    # Get shape of last layer and remove batch size
+    return summary.popitem()[1]["output_shape"][1:]

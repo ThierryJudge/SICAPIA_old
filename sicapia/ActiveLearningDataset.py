@@ -5,7 +5,15 @@ import copy
 from typing import Union
 
 class ActiveLearningDataset(Dataset):
-    def __init__(self, dataset: Dataset, initial_label_rate=0.2):
+    """
+    Active learning dataset
+    """
+    def __init__(self, dataset: Dataset, initial_label_rate: float=0.2):
+        """
+        Args:
+            dataset: torch.utils.data.Dataset, original dataset
+            initial_label_rate: float, amount of the original dataset to be initially labeled
+        """
         self.dataset = dataset
         self.initial_label_rate = initial_label_rate
 

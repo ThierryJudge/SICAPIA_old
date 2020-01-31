@@ -2,16 +2,21 @@ import random
 import numpy as np
 import torch
 import scipy.stats
-
+from sicapia.ActiveLearningDataset import ActiveLearningPool
 
 class ActiveLearningStrategy:
-    def __init__(self, max):
+    def __init__(self, max: bool):
+        """
+            Abstract class for active learning strategy.
+        Args:
+            max: bool, whether to take highest (max=True) or lowest (max=False) values for self.get_uncertainties(...)
+        """
         self.max = max
 
     def get_uncertainty(self, sample, model):
         raise NotImplementedError
 
-    def get_samples_indicies(self, pool_dataset, model, n_samples=100):
+    def get_samples_indicies(self, pool_dataset: ActiveLearningPool, model, n_samples=100):
         uncertainties = []
         for sample in pool_dataset:
             uncertainties.append(self.get_uncertainty(sample, model))
@@ -43,7 +48,7 @@ class ConfidenceSamplingStrategy(ActiveLearningStrategy):
         super().__init__(max=False)
 
     def get_uncertainty(self, sample, model):
-        model_pred = model.net(sample)
+        model_pred = model.net(sample[None])
         return torch.max(model_pred).detach().numpy()
 
 

@@ -9,7 +9,7 @@ import math
 
 class ActiveLearningModel:
     # model handels training, must be given network, loss, and metrics
-    # aswell as other hyperparatms : learning rate, batch_size, optimizer...
+    # aswell as other hyperparams : learning rate, batch_size, optimizer...
 
     def __init__(self, net:nn.Module):
         self.net = net
@@ -18,7 +18,6 @@ class ActiveLearningModel:
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.learning_rate)
         torch.save(self.net.state_dict(), 'initial_weights')
-        print(self.net.parameters())
 
     def reset_parameters(self):
         # torch.manual_seed(10)
@@ -40,10 +39,12 @@ class ActiveLearningModel:
     def train(self, train_dataset:ActiveLearningDataset, val_dataset=None, epochs=10, device='cpu', verbose=True,
               reset=False):
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size)
-        if val_dataset:
-            val_dataloader = Dataset(val_dataset, batch_size=self.batch_size)
+
         if reset:
             self.reset_parameters()
+
+        d=self.eval(train_dataset)
+        print(d)
         self.net.train()
         for epoch in range(epochs):
             loss_mean = 0
@@ -56,8 +57,12 @@ class ActiveLearningModel:
                 loss.backward()
                 self.optimizer.step()
             if verbose:
-                loss_mean /= len(train_dataset.dataset)
+                loss_mean /= len(train_dataset)
                 print('Train Epoch: {}: \tLoss: {:.6f}'.format(epoch, loss_mean))
+                if val_dataset:
+                    eval_dict = self.eval(val_dataset)
+                    print("Validation: {}".format(eval_dict))
+
 
     def eval(self, test_dataset:Dataset, device='cpu'):
         test_loader = DataLoader(test_dataset, batch_size=self.batch_size)
