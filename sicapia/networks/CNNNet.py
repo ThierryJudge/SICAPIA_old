@@ -10,8 +10,10 @@ class Flatten(torch.nn.Module):
         return x.view(batch_size, -1)
 
 class CNNNet(nn.Module):
-    def __init__(self, input_shape=(1, 28, 28), output_size=10):
+    def __init__(self, input_shape=(1, 28, 28), output_size=10, activation=F.log_softmax):
         super(CNNNet, self).__init__()
+
+        self.activation = activation
 
         self.conv_net = nn.Sequential(
             nn.Conv2d(1, 32, 3, 1),
@@ -33,8 +35,9 @@ class CNNNet(nn.Module):
         x = self.conv_net(x)
         x = torch.flatten(x, 1)
         x = self.fc_net(x)
-        output = F.log_softmax(x, dim=1)
-        return output
+        if self.activation:
+            x = self.activation(x, dim=1)
+        return x
 
 if __name__ == '__main__':
     from torchsummary import summary

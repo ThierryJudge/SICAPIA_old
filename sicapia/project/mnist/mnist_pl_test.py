@@ -52,6 +52,8 @@ class MNISTExample(pl.LightningModule):
         # print(batch[1])
         x, y = batch
         y_hat = self.forward(x)
+        print(y_hat.shape)
+        print(y.shape)
         loss = F.cross_entropy(y_hat, y)
         pred = y_hat.data.max(1, keepdim=True)[1]
         accuracy = pred.eq(y.data.view_as(pred)).sum().double() / len(x)
@@ -109,10 +111,6 @@ class MNISTExample(pl.LightningModule):
     def test_dataloader(self):
         return DataLoader(MNIST(os.getcwd(), train=False, download=True, transform=transforms.ToTensor()),
                           batch_size=32)
-
-    def train(self):
-        trainer = Trainer()
-        trainer.fit(model)
 
 
 if __name__ == '__main__':
