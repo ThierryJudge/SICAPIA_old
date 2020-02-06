@@ -7,13 +7,27 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from collections import defaultdict
-
+from torch import nn
+from torch.utils.data import Dataset
+import math
 from sicapia.utils.metrics import *
 
 
 class ActiveLearningModel(pl.LightningModule):
 
-    def __init__(self, network, train_dataset, val_dataset, test_dataset, hparams=None, loss_fn=F.nll_loss, metrics=None):
+    def __init__(self, network: nn.Module, train_dataset: Dataset, test_dataset: Dataset, val_dataset: Dataset = None,
+                 hparams=None, loss_fn=F.nll_loss, metrics=None):
+        """
+
+        Args:
+            network: nn.Module, network to train
+            train_dataset: torch.utils.data.Dataset, training dataset
+            val_dataset: torch.utils.data.Dataset, validation dataset
+            test_dataset: torch.utils.data.Dataset, test dataset
+            hparams:
+            loss_fn: callable, torch.nn.functional loss function
+            metrics: list(callable), list of metrics to evaluate model
+        """
         super(ActiveLearningModel, self).__init__()
         self.network = network
         self.train_dataset = train_dataset
@@ -22,6 +36,23 @@ class ActiveLearningModel(pl.LightningModule):
         self.loss_fn = loss_fn
         self.metrics = metrics
         self.hparams = hparams
+
+    def reset_parameters(self):
+        # torch.manual_seed(10)
+        for m in self.network.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.kaiming_uniform_(m.weight, a=math.sqrt(5))
+                if m.bias is not None:
+                    fan_in, _ = nn.init._calculate_fan_in_and_fan_out(m.weight)
+                    bound = 1 / math.sqrt(fan_in)
+                    nn.init.uniform_(m.bias, -bound, bound)
+        # self.net = Net()
+        # self.net.load_state_dict(torch.load('initial_weights'))
 
     def update_datasets(self, train_dataset, val_dataset=None, test_dataset=None):
         self.train_dataset = train_dataset
@@ -113,10 +144,12 @@ class ActiveLearningModel(pl.LightningModule):
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=32)
 
-    def train_model(self, trainer):
+    def train_model(self, trainer, reset=False):
+        if reset:
+            self.reset_parameters()
         trainer.fit(self)
 
-    def eval_model(self, test=False):
+    def evaluate_model(self, test=False):
         if test:
             loader = self.test_dataloader()[0]
         else:
@@ -130,8 +163,7 @@ class ActiveLearningModel(pl.LightningModule):
             for i, batch in enumerate(loader):
                 x, y = batch
                 y_hat = self.network(x)
-                loss += self.loss_fn(y_hat, y).item()  # sum up batch loss
-
+                loss += self.loss_fn(y_hat, y).item()
                 m = self.compute_metrics(y_hat, y, to_tensor=False)
                 for k in m.keys():
                     metrics[k] += m[k]
@@ -179,5 +211,7 @@ if __name__ == '__main__':
 
 
     model.train_model(trainer)
-    print(model.eval_model())
+    print(model.evaluate_model())
+    model.reset_parameters()
+    print(model.evaluate_model())
 
