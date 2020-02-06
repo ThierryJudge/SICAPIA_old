@@ -6,13 +6,14 @@ from pytorch_lightning import Trainer
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 from torchvision import transforms
+from collections import defaultdict
 
 from sicapia.utils.metrics import *
 
 
 class ActiveLearningModel(pl.LightningModule):
 
-    def __init__(self, network, train_dataset, val_dataset, test_dataset, hparams=None, loss_fn=F.l1_loss, metrics=None):
+    def __init__(self, network, train_dataset, val_dataset, test_dataset, hparams=None, loss_fn=F.nll_loss, metrics=None):
         super(ActiveLearningModel, self).__init__()
         self.network = network
         self.train_dataset = train_dataset
@@ -87,10 +88,13 @@ class ActiveLearningModel(pl.LightningModule):
 
         return {'avg_test_loss': avg_loss, 'avg_test_acc': accuracy}
 
-    def compute_metrics(self, y_hat, y, prefix=''):
+    def compute_metrics(self, y_hat, y, prefix='', to_tensor=True):
         metrics = {}
-        for m in self.metrics:
-            metrics[prefix+m.__name__] = torch.tensor(m(y_hat, y))
+        for metric in self.metrics:
+            m = metric(y_hat, y)
+            if to_tensor:
+                m = torch.tensor(m)
+            metrics[prefix+metric.__name__] = m
 
         return metrics
 
@@ -112,15 +116,31 @@ class ActiveLearningModel(pl.LightningModule):
     def train_model(self, trainer):
         trainer.fit(self)
 
-    def test_model(self, trainer):
-        d = trainer.evaluate(self, self.test_dataloader(), len(self.test_dataloader()), test=True)
-        print(d)
-        results = {}
-        for k in d.keys():
-            if isinstance(d[k], torch.Tensor):
-                results[k] = d[k]
+    def eval_model(self, test=False):
+        if test:
+            loader = self.test_dataloader()[0]
+        else:
+            loader = self.val_dataloader()[0]
 
-        return results
+        metrics = defaultdict(float)
+
+        self.network.eval()
+        loss = 0
+        with torch.no_grad():
+            for i, batch in enumerate(loader):
+                x, y = batch
+                y_hat = self.network(x)
+                loss += self.loss_fn(y_hat, y).item()  # sum up batch loss
+
+                m = self.compute_metrics(y_hat, y, to_tensor=False)
+                for k in m.keys():
+                    metrics[k] += m[k]
+
+        metrics.update({'loss': loss})
+        for k in metrics.keys():
+            metrics[k] /= len(loader)
+
+        return dict(metrics)
 
 
 if __name__ == '__main__':
@@ -140,7 +160,7 @@ if __name__ == '__main__':
 
     network = LinearNet(input_shape=(1, 28, 28), output_size=10, activation=None)
     metrics = [accuracy]
-    model = ActiveLearningModel(network=network, train_dataset=mnist_val_1, val_dataset=mnist_val,
+    model = ActiveLearningModel(network=network, train_dataset=mnist_train, val_dataset=mnist_val,
                                 test_dataset=mnist_test, metrics=metrics, hparams=params)
 
     # most basic trainer, uses good defaults
@@ -159,5 +179,5 @@ if __name__ == '__main__':
 
 
     model.train_model(trainer)
-    print(model.test_model(trainer))
+    print(model.eval_model())
 
