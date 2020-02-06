@@ -19,6 +19,7 @@ dependencies:
   - simpleitk
   - pytorch
   - torchvision
+  - pillow=6.1 #fix for pytorch
   - pip:
     - pytorch-lightning
     - torchsummary

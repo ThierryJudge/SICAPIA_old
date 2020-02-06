@@ -48,7 +48,7 @@ class ConfidenceSamplingStrategy(ActiveLearningStrategy):
         super().__init__(max=False)
 
     def get_uncertainty(self, sample, model):
-        model_pred = model.net(sample[None])
+        model_pred = model(sample[None])
         return torch.max(model_pred).detach().numpy()
 
 
@@ -61,7 +61,7 @@ class MarginSamplingStrategy(ActiveLearningStrategy):
         super().__init__(max=False)
 
     def get_uncertainty(self, sample, model):
-        model_pred = model.net(sample).detach().numpy()
+        model_pred = model(sample).detach().numpy()
         sort_predictions = np.sort(model_pred, axis=1)
         return float(sort_predictions[:, -1] - sort_predictions[:, -2])
 
@@ -75,6 +75,6 @@ class EntropySamplingStrategy(ActiveLearningStrategy):
         super().__init__(max=False)
 
     def get_uncertainty(self, sample, model):
-        model_pred = model.net(sample).detach().numpy().flatten()
+        model_pred = model(sample).detach().numpy().flatten()
         entropy = scipy.stats.entropy(model_pred)
         return entropy

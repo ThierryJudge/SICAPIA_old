@@ -22,7 +22,7 @@ class CNNNet(nn.Module):
             nn.Dropout2d(0.25)
         )
 
-        conv_output_size = compute_output_shape(self.conv_net, input_shape)
+        conv_output_size = compute_output_shape(self.conv_net, input_shape, device='cpu')
 
         self.fc_net = nn.Sequential(
             Flatten(),

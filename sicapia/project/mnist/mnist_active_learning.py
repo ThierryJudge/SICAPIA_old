@@ -3,7 +3,7 @@ import os
 from torchvision import transforms
 from sicapia.ActiveLearningStrategy import *
 from sicapia.networks.CNNNet import CNNNet
-from sicapia.ActiveLearningModel import ActiveLearningModel
+from sicapia.ActiveLearningModel_vanila import ActiveLearningModel
 from sicapia.ActiveLearningDataset import ActiveLearningDataset
 from sicapia.ActiveLearningSystem import ActiveLearningSystem
 

@@ -1,7 +1,7 @@
 import os
 from argparse import ArgumentParser
 
-from sicapia.ActiveLearningModel2 import ActiveLearningModel
+from sicapia.ActiveLearningModel import ActiveLearningModel
 from sicapia.networks.CNNNet import CNNNet
 from sicapia.networks.LinearNet import LinearNet
 from torchvision import transforms
