@@ -138,7 +138,8 @@ class ActiveLearningModel(pl.LightningModule):
 
     @pl.data_loader
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=32)
+        if self.val_dataset:
+            return DataLoader(self.val_dataset, batch_size=32)
 
     @pl.data_loader
     def test_dataloader(self):
@@ -149,11 +150,17 @@ class ActiveLearningModel(pl.LightningModule):
             self.reset_parameters()
         trainer.fit(self)
 
-    def evaluate_model(self, test=False):
-        if test:
+    def evaluate_model(self, set='test'):
+        if set == 'train':
+            loader = self.train_dataloader()
+        elif set == 'test':
             loader = self.test_dataloader()[0]
-        else:
+        elif set == 'val':
+            if not self.val_dataset:
+                raise ValueError("No validation dataset")
             loader = self.val_dataloader()[0]
+        else:
+            raise ValueError('Set must be one of \'train\', \'val\', \'test\'. Got \'{}\''.format(set))
 
         metrics = defaultdict(float)
 
@@ -181,7 +188,6 @@ if __name__ == '__main__':
     from sicapia.networks.CNNNet import CNNNet
 
     args = ArgumentParser()
-    args.add_argument('--final_dim', type=int, default=128)
     args.add_argument('--lr', type=float, default=0.02)
     params = args.parse_args()
 
