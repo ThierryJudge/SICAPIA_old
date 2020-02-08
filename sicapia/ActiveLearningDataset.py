@@ -59,8 +59,8 @@ class ActiveLearningDataset(Dataset):
         self.create_pool()
         self.labeled_data_subset = Subset(self.dataset, np.where(self.labeled == 1)[0])
 
-    def get_semi_supervised_dataset(self):
-        return SemiSupervisedLearningDataset(self.labeled_data_subset, self.active_learning_pool)
+    def get_semi_supervised_dataset(self, batch_size=32):
+        return SemiSupervisedLearningDataset(self.labeled_data_subset, self.active_learning_pool, batch_size=batch_size)
 
 
 def remove_label(x):
@@ -80,7 +80,7 @@ class ActiveLearningPool(Dataset):
 
 
 class SemiSupervisedLearningDataset(Dataset):
-    def __init__(self, supervised_dataset: Dataset, unsupervised_dataset: Dataset, supervised_rate: float=None,
+    def __init__(self, supervised_dataset: Dataset, unsupervised_dataset: Dataset, unsupervised_freq: int=3,
                  batch_size=32):
         """
         This dataset handles creating batches!
@@ -88,6 +88,9 @@ class SemiSupervisedLearningDataset(Dataset):
 
         TODO
         Epoch must include all labeled data and un-labeled data every x batches according to supervised_rate
+        or
+        Epcoh is all the data
+        ADD counter for non supervised data to repeating data
 
         Args:
             supervised_dataset: torch.utils.data.Dataset, labeled dataset
@@ -98,30 +101,32 @@ class SemiSupervisedLearningDataset(Dataset):
 
         self.supervised_dataset = supervised_dataset
         self.unsupervised_dataset = unsupervised_dataset
-        self.supervised_rate = supervised_rate
+        self.unsupervised_freq = unsupervised_freq
         self.batch_size = batch_size
 
         self.unsupervised_dataset_len = int(np.ceil(len(self.unsupervised_dataset) / self.batch_size))
         self.supervised_dataset_len = int(np.ceil(len(self.supervised_dataset) / self.batch_size))
 
     def __getitem__(self, index):
-        if index%2==0:
+        if index%self.unsupervised_freq==0:
             index = index % self.unsupervised_dataset_len
+
             batch_samples = range(index * self.batch_size, (
             (index + 1) * self.batch_size if (index + 1) * self.batch_size < len(self.unsupervised_dataset) else len(
                 self.unsupervised_dataset)))
-            print(batch_samples)
+
             return 1, default_collate([self.unsupervised_dataset[i] for i in batch_samples])
         else:
             index = index % self.supervised_dataset_len
+
             batch_samples = range(index * self.batch_size, (
             (index + 1) * self.batch_size if (index + 1) * self.batch_size < len(self.supervised_dataset) else len(
                 self.supervised_dataset)))
-            print(batch_samples)
+
             return 0, default_collate([self.supervised_dataset[i] for i in batch_samples])
 
     def __len__(self):
-        return self.supervised_dataset_len + self.unsupervised_dataset_len
+        return self.supervised_dataset_len + self.supervised_dataset_len//self.unsupervised_freq
 
 
 if __name__ == '__main__':
@@ -161,6 +166,8 @@ if __name__ == '__main__':
     print(len(semi_dataset))
 
     semi_dataloader = DataLoader(semi_dataset, batch_size=None)
+    sup_cout = 0
+    unsup_cout = 0
 
     for batch in semi_dataloader:
         if batch[0] == 0:
@@ -168,7 +175,13 @@ if __name__ == '__main__':
             print("Supervised")
             print(x.shape)
             print(y.shape)
+            sup_cout += 1
+
         else:
             x = batch[1]
             print("Unsupervised")
             print(x.shape)
+            unsup_cout += 1
+
+    print(sup_cout)
+    print(unsup_cout)

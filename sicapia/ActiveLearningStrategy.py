@@ -4,6 +4,7 @@ import torch
 import scipy.stats
 from sicapia.ActiveLearningDataset import ActiveLearningPool
 
+
 class ActiveLearningStrategy:
     def __init__(self, max: bool):
         """
@@ -32,6 +33,10 @@ class ActiveLearningStrategy:
 
 
 class RandomStrategy(ActiveLearningStrategy):
+    """
+    Randomly sample data.
+    """
+    NAME='random'
     def __init__(self):
         super().__init__(max=True)
 
@@ -43,7 +48,7 @@ class ConfidenceSamplingStrategy(ActiveLearningStrategy):
     """
     Get lowest probable prediction
     """
-
+    NAME = 'confidence'
     def __init__(self):
         super().__init__(max=False)
 
@@ -56,7 +61,7 @@ class MarginSamplingStrategy(ActiveLearningStrategy):
     """
     Get smallest difference between two most probable predictions
     """
-
+    NAME = 'margin'
     def __init__(self):
         super().__init__(max=False)
 
@@ -68,9 +73,9 @@ class MarginSamplingStrategy(ActiveLearningStrategy):
 
 class EntropySamplingStrategy(ActiveLearningStrategy):
     """
-    Get smallest difference between two most probable predictions
+    Return entropy in the prediction distribution
     """
-
+    NAME='entropy'
     def __init__(self):
         super().__init__(max=False)
 
@@ -78,3 +83,12 @@ class EntropySamplingStrategy(ActiveLearningStrategy):
         model_pred = model(sample).detach().numpy().flatten()
         entropy = scipy.stats.entropy(model_pred)
         return entropy
+
+
+AL_STRATEGIES = {RandomStrategy.NAME : RandomStrategy,
+                 ConfidenceSamplingStrategy.NAME: ConfidenceSamplingStrategy,
+                 MarginSamplingStrategy.NAME: MarginSamplingStrategy,
+                 EntropySamplingStrategy.NAME: EntropySamplingStrategy}
+
+def get_strategy(name):
+    return AL_STRATEGIES[name]

@@ -13,7 +13,8 @@ from torch.utils.data import Dataset
 import math
 from sicapia.utils.metrics import *
 import argparse
-
+import glob
+from sicapia.utils.path_utils import create_model_directories
 
 class ActiveLearningModel(pl.LightningModule):
 
@@ -26,9 +27,9 @@ class ActiveLearningModel(pl.LightningModule):
             train_dataset: torch.utils.data.Dataset, training dataset
             val_dataset: torch.utils.data.Dataset, validation dataset
             test_dataset: torch.utils.data.Dataset, test dataset
-            hparams:
-            loss_fn: callable, torch.nn.functional loss function
-            metrics: list(callable), list of metrics to evaluate model
+            hparams: Namespace, hyperparams from argparser
+            loss_fn: Callable, torch.nn.functional loss function
+            metrics: Sequence[Callable], list of metrics to evaluate model
         """
         super(ActiveLearningModel, self).__init__()
 
@@ -39,6 +40,13 @@ class ActiveLearningModel(pl.LightningModule):
         self.loss_fn = loss_fn
         self.metrics = metrics
         self.hparams = hparams
+
+        self.name = self.hparams.name
+        # If name is given, create directories, else use default Trainer path
+        if self.name:
+            self.name  = create_model_directories(self.name)
+
+        self.metric_names = [m.__name__ for m in self.metrics]
 
     def reset_parameters(self):
         # torch.manual_seed(10)
@@ -54,10 +62,17 @@ class ActiveLearningModel(pl.LightningModule):
                     fan_in, _ = nn.init._calculate_fan_in_and_fan_out(m.weight)
                     bound = 1 / math.sqrt(fan_in)
                     nn.init.uniform_(m.bias, -bound, bound)
-        # self.net = Net()
-        # self.net.load_state_dict(torch.load('initial_weights'))
 
     def update_datasets(self, train_dataset, val_dataset=None, test_dataset=None):
+        """
+            Update training dataset to allow active learning process. New dataset is passed once more labeled data is
+            available.
+            Optionally update validation and test dataset.
+        Args:
+            train_dataset: torch.utils.data.Dataset, training dataset
+            val_dataset: torch.utils.data.Dataset, validation dataset
+            test_dataset: torch.utils.data.Dataset, test dataset
+        """
         self.train_dataset = train_dataset
         if val_dataset:
             self.val_dataset = val_dataset
@@ -71,44 +86,60 @@ class ActiveLearningModel(pl.LightningModule):
         x, y = batch
         y_hat = self.forward(x)
 
-        loss = F.cross_entropy(y_hat, y)
-
-        metrics = self.compute_metrics(y_hat, y)
+        loss = self.loss_fn(y_hat, y)
 
         tensorboard_logs = {'train_loss': loss}
-        progress_bar = metrics
+
+        if self.metrics:
+            metrics = self.compute_metrics(y_hat, y)
+            progress_bar = metrics
+            tensorboard_logs.update(metrics)
+
         return_dict =  {'loss': loss,
-                'log': tensorboard_logs,
-                'progress_bar': progress_bar}
-        return_dict.update(metrics)
+                        'log': tensorboard_logs}
+
+        if self.metrics:
+            return_dict.update(metrics)
+            return_dict.update({'progress_bar': progress_bar})
+
         return return_dict
 
     def validation_step(self, batch, batch_nb):
         x, y = batch
         y_hat = self.forward(x)
 
-        loss = F.cross_entropy(y_hat, y)
+        loss = self.loss_fn(y_hat, y)
 
         return_dict = {'val_loss': loss}
         if self.metrics:
-            metrics = self.compute_metrics(y_hat, y)
+            metrics = self.compute_metrics(y_hat, y, prefix='val_')
             return_dict.update(metrics)
         return return_dict
 
     def validation_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        accuracy = torch.stack([x['accuracy'] for x in outputs]).mean()
 
-        logs = {'val_loss': avg_loss, 'val_acc': accuracy}
-        return {'avg_val_loss': avg_loss,
-                'progress_bar': logs,
-                'log': logs}
+        logs = {'val_loss': avg_loss}
+
+        if self.metrics:
+            average_metrics = {}
+            for name in self.metric_names:
+                average_metrics['val_' + name] = torch.stack([x['val_' + name] for x in outputs]).mean()
+            logs.update(average_metrics)
+
+        return_dict =  {'avg_val_loss': avg_loss,
+                        'progress_bar': logs,
+                        'log': logs}
+        if self.metrics:
+            return_dict.update(average_metrics)
+
+        return return_dict
 
     def testing_step(self, batch, batch_nb):
         x, y = batch
         y_hat = self.forward(x)
 
-        loss = F.cross_entropy(y_hat, y)
+        loss = self.loss_fn(y_hat, y)
 
         return_dict = {'test_loss': loss}
         if self.metrics:
@@ -119,9 +150,21 @@ class ActiveLearningModel(pl.LightningModule):
 
     def test_end(self, outputs):
         avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
-        accuracy = torch.stack([x['test_accuracy'] for x in outputs]).mean()
 
-        return {'avg_test_loss': avg_loss, 'avg_test_acc': accuracy}
+        logs = {'test_loss': avg_loss}
+
+        if self.metrics:
+            average_metrics = {}
+            for name in self.metric_names:
+                average_metrics['test_' + name] = torch.stack([x['test_' + name] for x in outputs]).mean()
+            logs.update(average_metrics)
+
+        return_dict = {'avg_test_loss': avg_loss,
+                       'log': logs}
+        if self.metrics:
+            return_dict.update(average_metrics)
+
+        return return_dict
 
     def compute_metrics(self, y_hat, y, prefix='', to_tensor=True):
         metrics = {}
@@ -149,10 +192,35 @@ class ActiveLearningModel(pl.LightningModule):
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.hparams.batch_size)
 
+    def save(self, path: str, checkpoint_path: str = None):
+        if checkpoint_path:
+            try:
+                checkpoint_path = glob.glob(checkpoint_path)[0]
+                print(checkpoint_path)
+                self.load_weights(checkpoint_path)
+            except:
+                print("Failed to load checkpoint file, saving file with current weights")
+
+        save_model_path = os.path.join(path, 'model.pkl')
+        print("Saving model to {}".format(save_model_path))
+        torch.save(self.network, save_model_path)
+
+    def load_model(self, path):
+        self.network = torch.load(path)
+
+    def load_weights(self, path):
+        checkpoint = torch.load(path)
+        self.network.load_state_dict(checkpoint['state_dict'])
+
     def train_model(self, trainer, reset=False):
         if reset:
             self.reset_parameters()
-        trainer.fit(self)
+        try:
+            trainer.fit(self)
+        except KeyboardInterrupt:
+            print("Training canceled")
+        self.save(trainer.weights_save_path, checkpoint_path=trainer.weights_save_path)
+
 
     def evaluate_model(self, set='test'):
         if set == 'train':
@@ -188,31 +256,24 @@ class ActiveLearningModel(pl.LightningModule):
     @staticmethod
     def add_model_specific_args(parent_parser):  # pragma: no cover
         parser = argparse.ArgumentParser(parents=[parent_parser])
-        parser.add_argument('--epochs', default=10, type=int, metavar='N',
-                            help='number of total epochs to run')
-        parser.add_argument('-b', '--batch-size', default=32, type=int,
-                            metavar='N',
-                            help='mini-batch size (default: 256), this is the total '
-                                 'batch size of all GPUs on the current node when '
-                                 'using Data Parallel or Distributed Data Parallel')
-        parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
-                            metavar='LR', help='initial learning rate', dest='lr')
+        parser.add_argument('--epochs', default=5, type=int, help='Number of total epochs to run')
+        parser.add_argument('-b', '--batch-size', default=32, type=int, help='batch size')
+        parser.add_argument('--lr', '--learning-rate', default=0.1, type=float, help='Initial learning rate', dest='lr')
+        parser.add_argument('--name', default=None, type=str, help='Path to save model')
         return parser
 
 
 if __name__ == '__main__':
     from torchvision.datasets import MNIST
     from sicapia.networks.LinearNet import LinearNet
-    from sicapia.networks.CNNNet import CNNNet
 
-    args = ArgumentParser()
+    args = ArgumentParser(add_help=False)
     args = ActiveLearningModel.add_model_specific_args(args)
     params = args.parse_args()
 
-    mnist_train = MNIST(os.getcwd(), train=True, download=True, transform=transforms.ToTensor())
-    mnist_val = MNIST(os.getcwd(), train=False, download=True, transform=transforms.ToTensor())
-    mnist_val_1 = MNIST(os.getcwd(), train=False, download=True, transform=transforms.ToTensor())
-    mnist_test = MNIST(os.getcwd(), train=False, download=True, transform=transforms.ToTensor())
+    mnist_train = MNIST('/tmp', train=True, download=True, transform=transforms.ToTensor())
+    mnist_val = MNIST('/tmp', train=False, download=True, transform=transforms.ToTensor())
+    mnist_test = MNIST('/tmp', train=False, download=True, transform=transforms.ToTensor())
 
     network = LinearNet(input_shape=(1, 28, 28), output_size=10, activation=None)
     metrics = [accuracy]
@@ -220,7 +281,8 @@ if __name__ == '__main__':
                                 test_dataset=mnist_test, metrics=metrics, hparams=params, loss_fn=F.nll_loss)
 
     # most basic trainer, uses good defaults
-    trainer = Trainer(max_nb_epochs=1)
+    trainer = Trainer(max_nb_epochs=2, default_save_path=model.name)
+    print(trainer.default_save_path)
 
     # model.train_model(trainer)
     #

@@ -18,6 +18,8 @@ class ActiveLearningSystem:
                  path=None):
 
         """
+        ActiveLearning system manages the active learning process of a ActiveLearningModel trained on an
+        ActiveLearningDataset using an ActiveLearningStrategy.
 
         Args:
             al_dataset: ActiveLearningDataset, dataset for training
@@ -33,14 +35,14 @@ class ActiveLearningSystem:
         self.strategy = strategy
 
         self.history = defaultdict(list)
-        self.name = self.__class__.__name__ if path is None else path
+        self.name = "AL_" + self.strategy.__class__.__name__ if path is None else path
         self.name,  = create_model_directories(self.name)
 
-    def active_learning_loop(self, iterations=5):
+    def active_learning_loop(self, iterations=10):
         self.al_dataset.reset()
         self.model.reset_parameters()
         for i in range(iterations):
-            self.trainer = Trainer(max_epochs=self.model.hparams.epochs, default_save_path=self.name)
+            self.trainer = Trainer(max_nb_epochs=self.model.hparams.epochs, default_save_path=self.name)
             print("Active Learning iteration: {} of {}".format(i, iterations))
             print("Training on {} samples: ".format(len(self.al_dataset)))
             self.model.train_model(self.trainer)
@@ -52,53 +54,20 @@ class ActiveLearningSystem:
                 print("{}: {}, ".format(k, test_results[k]), end='')
                 self.history[k].append(test_results[k])
             print()
-            self.history['num_samples'] = len(self.al_dataset)
+            self.history['num_samples'].append(len(self.al_dataset))
 
             ind = self.strategy.get_samples_indicies(self.al_dataset.get_pool(), self.model, 100)
             self.al_dataset.label(ind)
 
         for k in self.history.keys():
-            plt.figure()
-            plt.title(k)
-            plt.plot(self.history[k])
+            if k != 'num_samples':
+                plt.figure()
+                plt.title(k)
+                plt.plot(self.history['num_samples'], self.history[k])
+                plot_path = pjoin(self.name, '{}.jpg'.format(k))
+                plt.savefig(plot_path)
+        plt.show()
 
 
         history = pandas.DataFrame(self.history)
-        history.to_csv(pjoin(self.name, 'history.csv'), sep='\t')
-        plt.show()
-        history_path = pjoin(self.name, '{}.json'.format(self.strategy.__class__.__name__))
-        plot_path = pjoin(self.name, '{}.jpg'.format(self.strategy.__class__.__name__))
-        plt.savefig(plot_path)
-        json.dump(self.history, open(history_path, 'w'))
-
-
-if __name__ == '__main__':
-    from torchvision.datasets import MNIST
-    import os
-    from torchvision import transforms
-    from sicapia.ActiveLearningStrategy import *
-    from sicapia.networks.CNNNet import CNNNet
-    import argparse
-    from torch.nn import functional as F
-    from sicapia.utils.metrics import accuracy
-
-    parent_parser = argparse.ArgumentParser(add_help=False)
-    args = ActiveLearningModel.add_model_specific_args(parent_parser)
-    params = args.parse_args()
-
-    mnist = MNIST(os.getcwd(), train=True, download=True, transform=transforms.ToTensor())
-    mnist_test = MNIST(os.getcwd(), train=False, download=True, transform=transforms.ToTensor())
-
-    al_dataset = ActiveLearningDataset(mnist, initial_label_rate=0.001)
-
-    net = CNNNet((1, 28, 28), 10)
-    metrics = [accuracy]
-    model = ActiveLearningModel(network=net, train_dataset=al_dataset, val_dataset=mnist_test, test_dataset=mnist_test,
-                                hparams=params, loss_fn=F.nll_loss, metrics=metrics)
-
-    al_strategy = ConfidenceSamplingStrategy()
-
-    al_system = ActiveLearningSystem(al_dataset=al_dataset, test_dataset=mnist_test, model=model,
-                                     strategy=al_strategy)
-
-    al_system.active_learning_loop()
+        history.to_csv(pjoin(self.name,'{}.csv'.format(self.strategy.__class__.__name__)))
