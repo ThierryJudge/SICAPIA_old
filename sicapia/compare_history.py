@@ -3,9 +3,6 @@ import pandas as pd
 import ntpath
 import os
 
-files = ['project/mnist/ConfidenceSamplingStrategy/ConfidenceSamplingStrategy.csv',
-         'project/mnist/MarginSamplingStrategy/MarginSamplingStrategy.csv',
-         'project/mnist/RandomStrategy/RandomStrategy.csv']
 
 """
 Examples usage 
