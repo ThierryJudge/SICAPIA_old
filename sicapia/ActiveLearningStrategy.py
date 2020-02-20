@@ -1,0 +1,94 @@
+import random
+import numpy as np
+import torch
+import scipy.stats
+from sicapia.ActiveLearningDataset import ActiveLearningPool
+
+
+class ActiveLearningStrategy:
+    def __init__(self, max: bool):
+        """
+            Abstract class for active learning strategy.
+        Args:
+            max: bool, whether to take highest (max=True) or lowest (max=False) values for self.get_uncertainties(...)
+        """
+        self.max = max
+
+    def get_uncertainty(self, sample, model):
+        raise NotImplementedError
+
+    def get_samples_indicies(self, pool_dataset: ActiveLearningPool, model, n_samples=100):
+        uncertainties = []
+        for sample in pool_dataset:
+            uncertainties.append(self.get_uncertainty(sample, model))
+
+        uncertainties = np.array(uncertainties)
+        pool_indicies = np.arange(len(pool_dataset))
+        pool_indicies = pool_indicies[uncertainties.argsort()]
+
+        if self.max:
+            return pool_indicies[len(pool_dataset) - n_samples:]  # get highest uncertainties
+        else:
+            return pool_indicies[:n_samples]  # get lowest uncertainties
+
+
+class RandomStrategy(ActiveLearningStrategy):
+    """
+    Randomly sample data.
+    """
+    NAME='random'
+    def __init__(self):
+        super().__init__(max=True)
+
+    def get_uncertainty(self, sample, model):
+        return random.uniform(0, 1)
+
+
+class ConfidenceSamplingStrategy(ActiveLearningStrategy):
+    """
+    Get lowest probable prediction
+    """
+    NAME = 'confidence'
+    def __init__(self):
+        super().__init__(max=False)
+
+    def get_uncertainty(self, sample, model):
+        model_pred = model(sample[None])
+        return torch.max(model_pred).detach().numpy()
+
+
+class MarginSamplingStrategy(ActiveLearningStrategy):
+    """
+    Get smallest difference between two most probable predictions
+    """
+    NAME = 'margin'
+    def __init__(self):
+        super().__init__(max=False)
+
+    def get_uncertainty(self, sample, model):
+        model_pred = model(sample).detach().numpy()
+        sort_predictions = np.sort(model_pred, axis=1)
+        return float(sort_predictions[:, -1] - sort_predictions[:, -2])
+
+
+class EntropySamplingStrategy(ActiveLearningStrategy):
+    """
+    Return entropy in the prediction distribution
+    """
+    NAME='entropy'
+    def __init__(self):
+        super().__init__(max=False)
+
+    def get_uncertainty(self, sample, model):
+        model_pred = model(sample).detach().numpy().flatten()
+        entropy = scipy.stats.entropy(model_pred)
+        return entropy
+
+
+AL_STRATEGIES = {RandomStrategy.NAME : RandomStrategy,
+                 ConfidenceSamplingStrategy.NAME: ConfidenceSamplingStrategy,
+                 MarginSamplingStrategy.NAME: MarginSamplingStrategy,
+                 EntropySamplingStrategy.NAME: EntropySamplingStrategy}
+
+def get_strategy(name):
+    return AL_STRATEGIES[name]
